@@ -1,5 +1,5 @@
 use crate::strategy::{base_strategy, dealer_strategy, strategy};
-use crate::util::{draw, Action, Hand, Result};
+use crate::util::{Action, Hand, Result, draw};
 
 pub fn play_round(deck: &mut Vec<u8>) -> Result {
     // Deal player

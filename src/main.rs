@@ -4,8 +4,8 @@ mod util;
 
 use game::play_round;
 use rayon::prelude::*;
-use util::{get_shuffled_deck, Result};
 use std::time::Instant;
+use util::{Result, get_shuffled_deck};
 
 #[derive(Default)]
 struct Stats {
@@ -58,13 +58,10 @@ fn main() {
 
             stats
         })
-        .reduce(
-            Stats::default,
-            |mut a, b| {
-                a.combine(b);
-                a
-            },
-        );
+        .reduce(Stats::default, |mut a, b| {
+            a.combine(b);
+            a
+        });
 
     let elapsed = start.elapsed();
 
@@ -94,7 +91,7 @@ fn main() {
     println!();
     println!("Time:       {:.3?}", elapsed);
     println!(
-    "Hands/sec:  {:.2}M",
-    total as f64 / elapsed.as_secs_f64() / 1_000_000.0
-);
+        "Hands/sec:  {:.2}M",
+        total as f64 / elapsed.as_secs_f64() / 1_000_000.0
+    );
 }
