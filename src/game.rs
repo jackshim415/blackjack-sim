@@ -1,95 +1,77 @@
-use rand::{rng, seq::SliceRandom};
-use util::*;
+use crate::strategy::{base_strategy, dealer_strategy, strategy};
+use crate::util::{draw, Action, Hand, Result};
 
-pub fn play_game() {
-    let deck: Vec<u8> = get_shuffled_deck(6);
+pub fn play_round(deck: &mut Vec<u8>) -> Result {
+    // Deal player
+    let mut player = Hand::new(draw(deck), draw(deck));
 
-    let players: usize = 6;
-}
+    // Dealer's first card is visible
+    let dealer_upcard = draw(deck);
 
-fn get_shuffled_deck(decks: u8) -> Vec<u8> {
-    let single_deck: [u8; 52] = [
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11, 2,
-        3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11,
-    ];
+    // Dealer hole card
+    let mut dealer = Hand::new(dealer_upcard, draw(deck));
 
-    let mut deck: Vec<u8> = single_deck.repeat(usize::from(decks));
-
-    deck.shuffle(&mut rng());
-    deck
-}
-
-fn play_round(deck: Vec<u8>, players: usize) {
-    let mut hands: Vec<Hand> = vec![];
-
-    // deal cards
-    for _ in 1..players {
-        hands.push(Hand {
-            cards: vec![draw(&mut deck), draw(&mut deck)],
-            result: Result.Unknown,
-        });
-        hands[-1].count = hands[-1].cards[0] + hands[-1].cards[1]
-    }
-
-    let mut dealer: hand = Hand {
-        cards: vec![draw(&mut deck), draw(&mut deck)],
-        result: Result.Unknown,
-    };
-
-    dealer.count = dealer.cards[0] + dealer.cards[1];
-
-    for (x, hand) in hands.iter_mut().enumerate() {
-        let mut action: Action = Action.Stand;
-        if x == 0 {
-            action = strategy(hand);
-        } else {
-            action = baseStrategy(hand);
+    // Handle player blackjack
+    if player.is_blackjack() {
+        if dealer.is_blackjack() {
+            return Result::Push;
         }
 
-        if (action == Action.Hit) {
-            hand.cards.push(draw(&mut deck));
-            hand.count += hand.cards[-1];
-            if hand.count > 21 {
-                hand.result = Result.Loss;
+        return Result::Win;
+    }
+
+    // Player plays
+    loop {
+        player.count = crate::util::hand_value(&player.cards);
+
+        if player.is_bust() {
+            return Result::Loss;
+        }
+
+        let action = strategy(&player, dealer_upcard);
+
+        match action {
+            Action::Hit => {
+                player.add_card(draw(deck));
+            }
+
+            Action::Stand => {
+                break;
             }
         }
     }
 
-    if (dealerStrategy(dealer) == Action.Hit) {
-        let card = draw(&mut deck);
-        dealer.cards.push(card);
-        dealer.count += card;
-        if dealer.count > 21 {
-            dealer.result = Result.Loss;
-            for hand in hands {
-                if hand.result != Result.Loss {
-                    hand.result = Result.Win;
-                }
+    // Dealer blackjack
+    if dealer.is_blackjack() {
+        return Result::Loss;
+    }
+
+    // Dealer plays
+    loop {
+        dealer.count = crate::util::hand_value(&dealer.cards);
+
+        match dealer_strategy(&dealer) {
+            Action::Hit => {
+                dealer.add_card(draw(deck));
             }
-        } else {
-            for hand in hands {
-                if hand.result != Result.Loss && hand.count > dealer.count {
-                    hand.result = Result.Win;
-                } else if hand.result != Result.Loss && hand.count == dealer.count {
-                    hand.result = Result.Push
-                } else {
-                    hand.result = Result.Loss
-                }
+
+            Action::Stand => {
+                break;
             }
         }
+    }
+
+    // Dealer bust
+    if dealer.is_bust() {
+        return Result::Win;
+    }
+
+    // Compare hands
+    if player.count > dealer.count {
+        Result::Win
+    } else if player.count == dealer.count {
+        Result::Push
     } else {
-        for hand in hands {
-            if hand.result != Result.Loss && hand.count > dealer.count {
-                hand.result = Result.Win;
-            } else if hand.result != Result.Loss && hand.count == dealer.count {
-                hand.result = Result.Push
-            } else {
-                hand.result = Result.Loss
-            }
-        }
+        Result::Loss
     }
-    hands[0].result
-}
-fn draw(deck: &mut Vec<u8>) -> u8 {
-    deck.pop().expect("Deck is empty")
 }
